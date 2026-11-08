@@ -18,8 +18,12 @@ The extension only runs in the interactive TUI. In `print`, `json` and `rpc` mod
 ## Install
 
 ```bash
-pi install /path/to/pi-chroma          # or: pi install git:github.com/<you>/pi-chroma
-# try it for one run without installing:
+pi install git:github.com/iceninejon/pi-chroma
+```
+
+To try it for one run without installing, from a local clone:
+
+```bash
 pi -e /path/to/pi-chroma/src/extension.ts --theme /path/to/pi-chroma/themes --use-theme chroma-prism-dark
 ```
 
