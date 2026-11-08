@@ -1,0 +1,40 @@
+{
+  "name": "pi-chroma",
+  "version": "0.1.0",
+  "description": "Three switchable visual styles (Prism, Circuit, Rail) for the pi coding agent: themes plus a TUI extension for tool frames, status line, plan widget, turn stats and a two-row footer.",
+  "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
+  "files": [
+    "src",
+    "themes",
+    "README.md",
+    "NOTES.md",
+    "CHANGELOG.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ],
+    "themes": [
+      "./themes/*.json"
+    ]
+  },
+  "scripts": {
+    "link-pi": "node scripts/link-pi.mjs",
+    "gen:palettes": "node scripts/gen-palettes.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-test-module-mocks test/*.test.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,6 @@
+# Build instructions for the implementing agent, not part of the package
+guide/
+
+node_modules/
+*.log
+.DS_Store
