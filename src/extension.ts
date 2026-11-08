@@ -2,6 +2,7 @@
 import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { collapsedLabel, framedMarkdown, framesActive, installBlockFrames, uninstallBlockFrames } from "./blocks.ts";
 import { Dock, Footer, Header } from "./components.ts";
 import { GLYPH_NAMES, MOTION_NAMES, STYLE_NAMES, loadConfig, saveConfig, setAgentDirResolver } from "./config.ts";
 import { ChromaEditor } from "./editor.ts";
@@ -19,6 +20,19 @@ const STYLE_TITLES: Record<StyleName, string> = { prism: "Prism", circuit: "Circ
 
 function isStyle(v: unknown): v is StyleName {
 	return typeof v === "string" && (STYLE_NAMES as string[]).includes(v);
+}
+
+/** Text for pi's global hidden-thinking label (§2: one label for every collapsed block). */
+function thinkingLabel(finished?: { duration: string; tokens: number }): string {
+	if (!finished) return `${rt.g.brain} Thinking…`;
+	const plain = rt.impl.collapsedThinking(rt.env(100), finished.duration, finished.tokens);
+	return framesActive() ? collapsedLabel(finished.duration, finished.tokens, plain) : plain;
+}
+
+/** Re-apply the label for the latest finished thinking block (style / glyph / frame changes). */
+function refreshThinkingLabel(ctx: ExtensionContext): void {
+	const t = rt.lastThinking;
+	ctx.ui.setHiddenThinkingLabel(thinkingLabel(t ? { duration: elapsed(t.ms), tokens: t.tokens } : undefined));
 }
 
 /** Per-appearance theme name for a style. */
@@ -120,6 +134,7 @@ export default function piChroma(pi: ExtensionAPI): void {
 			ctx.ui.setTheme(themeName(flag, ctx));
 		}
 		rt.invalidatePainter();
+		installBlockFrames();
 		rt.outputPad = ((pi.getSettings() as { outputPad?: number }).outputPad ?? 1) === 0 ? 0 : 1;
 		rt.ticker.setMotion(rt.motion);
 		rt.ticker.setHandler(() => rt.requestRender());
@@ -153,7 +168,7 @@ export default function piChroma(pi: ExtensionAPI): void {
 			rt.tui = tui;
 			return new ChromaEditor(tui, theme, keybindings);
 		});
-		ctx.ui.setHiddenThinkingLabel(`${rt.g.brain} Thinking…`);
+		refreshThinkingLabel(ctx);
 
 		if (rt.config.planWidget) registerPlanTool();
 		refreshGit(ctx);
@@ -162,6 +177,7 @@ export default function piChroma(pi: ExtensionAPI): void {
 
 	pi.on("session_shutdown", async () => {
 		rt.enabled = false;
+		uninstallBlockFrames();
 		rt.ticker.dispose();
 		if (gitTimer) clearTimeout(gitTimer);
 		rt.tui = undefined;
@@ -203,7 +219,7 @@ export default function piChroma(pi: ExtensionAPI): void {
 			case "thinking_start":
 				rt.thinkStartedAt.set(ev.contentIndex, now);
 				rt.run.delta(now, "thinking", 0);
-				ctx.ui.setHiddenThinkingLabel(`${rt.g.brain} Thinking…`);
+				ctx.ui.setHiddenThinkingLabel(thinkingLabel());
 				break;
 			case "thinking_delta":
 				rt.run.delta(now, "thinking", ev.delta.length);
@@ -214,7 +230,7 @@ export default function piChroma(pi: ExtensionAPI): void {
 				const ms = Math.max(0, now - started);
 				const tokens = Math.ceil(ev.content.length / 4);
 				rt.lastThinking = { ms, tokens };
-				ctx.ui.setHiddenThinkingLabel(rt.impl.collapsedThinking(rt.env(100), elapsed(ms), tokens));
+				ctx.ui.setHiddenThinkingLabel(thinkingLabel({ duration: elapsed(ms), tokens }));
 				break;
 			}
 			case "text_start":
@@ -301,8 +317,26 @@ function reconstructPlan(ctx: ExtensionContext): PlanItem[] | undefined {
 
 function registerTransformer(pi: ExtensionAPI): void {
 	pi.registerMarkdownTransformer((markdown, ctx) => {
-		if (!rt.enabled || ctx.messageType === "assistant-thinking") return markdown;
+		if (!rt.enabled) return markdown;
 		if (!markdown.trim()) return markdown;
+		if (framesActive()) {
+			// Framed blocks: an invisible sentinel tells the patched Markdown render what this block is.
+			const kind = ctx.messageType === "assistant-thinking" ? "thinking" : ctx.messageType === "user" ? "user" : "assistant";
+			let model: string | undefined;
+			if (kind === "assistant") {
+				model = rt.modelId;
+				if (ctx.messageId) {
+					try {
+						const entry = rt.ctx?.sessionManager.getEntry(ctx.messageId) as { message?: { model?: string } } | undefined;
+						if (entry?.message?.model) model = entry.message.model;
+					} catch {
+						/* stale context: keep the current model */
+					}
+				}
+			}
+			return framedMarkdown(kind, markdown, { model, ts: ctx.timestamp });
+		}
+		if (ctx.messageType === "assistant-thinking") return markdown;
 		const who = ctx.messageType === "user" ? "user" : "assistant";
 		const g = rt.g;
 		const style = rt.config.style;
@@ -335,6 +369,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 			saveConfig(rt.config);
 			rt.invalidatePainter();
 			const res = ctx.ui.setTheme(themeName(style, ctx));
+			refreshThinkingLabel(ctx);
 			rt.tui?.invalidate();
 			rt.requestRender();
 			if (!res.success) ctx.ui.notify(`pi-chroma: could not switch theme (${res.error ?? "unknown error"})`, "error");
@@ -348,10 +383,18 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 		glyphs(ctx: ExtensionContext, glyphs: (typeof GLYPH_NAMES)[number]) {
 			rt.config.glyphs = glyphs;
 			saveConfig(rt.config);
-			ctx.ui.setHiddenThinkingLabel(`${rt.g.brain} Thinking…`);
+			refreshThinkingLabel(ctx);
 			rt.tui?.invalidate();
 			rt.requestRender();
 			ctx.ui.notify(`Glyphs: ${glyphs}`, "info");
+		},
+		frames(ctx: ExtensionContext, on: boolean) {
+			rt.config.frames = on;
+			saveConfig(rt.config);
+			refreshThinkingLabel(ctx);
+			rt.tui?.invalidate();
+			rt.requestRender();
+			ctx.ui.notify(`Block frames: ${on ? "on" : "off"}${on && !framesActive() ? " (unavailable: pi's render classes changed)" : ""}`, "info");
 		},
 		motion(ctx: ExtensionContext, motion: (typeof MOTION_NAMES)[number]) {
 			rt.config.motion = motion;
@@ -363,10 +406,10 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 	};
 
 	pi.registerCommand("chroma", {
-		description: "pi-chroma: switch style, glyph set and motion (/chroma style|glyphs|motion <value>)",
+		description: "pi-chroma: switch style, glyphs, motion, block frames (/chroma style|glyphs|motion|frames <value>)",
 		getArgumentCompletions(prefix) {
 			const words = prefix.split(/\s+/);
-			const opts: Record<string, readonly string[]> = { style: STYLE_NAMES, glyphs: GLYPH_NAMES, motion: MOTION_NAMES };
+			const opts: Record<string, readonly string[]> = { style: STYLE_NAMES, glyphs: GLYPH_NAMES, motion: MOTION_NAMES, frames: ["on", "off"] };
 			if (words.length <= 1) {
 				return Object.keys(opts)
 					.filter((k) => k.startsWith(words[0] ?? ""))
@@ -387,6 +430,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 				if (what === "style" && isStyle(value)) return apply.style(ctx, value);
 				if (what === "glyphs" && (GLYPH_NAMES as string[]).includes(value)) return apply.glyphs(ctx, value as never);
 				if (what === "motion" && (MOTION_NAMES as string[]).includes(value)) return apply.motion(ctx, value as never);
+				if (what === "frames" && (value === "on" || value === "off")) return apply.frames(ctx, value === "on");
 				ctx.ui.notify(`Unknown option: ${what} ${value}`, "error");
 				return;
 			}
@@ -394,6 +438,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 				`Style · ${rt.config.style}`,
 				`Glyphs · ${rt.config.glyphs}`,
 				`Motion · ${rt.config.motion}`,
+				`Block frames · ${rt.config.frames ? "on" : "off"}`,
 			]);
 			if (!pick) return;
 			if (pick.startsWith("Style")) {
@@ -402,6 +447,9 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 			} else if (pick.startsWith("Glyphs")) {
 				const gl = await ctx.ui.select("Glyphs", [...GLYPH_NAMES]);
 				if (gl && (GLYPH_NAMES as string[]).includes(gl)) apply.glyphs(ctx, gl as never);
+			} else if (pick.startsWith("Block frames")) {
+				const f = await ctx.ui.select("Block frames", ["on", "off"]);
+				if (f === "on" || f === "off") apply.frames(ctx, f === "on");
 			} else {
 				const mo = await ctx.ui.select("Motion", [...MOTION_NAMES]);
 				if (mo && (MOTION_NAMES as string[]).includes(mo)) apply.motion(ctx, mo as never);

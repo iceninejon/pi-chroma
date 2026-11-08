@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.0]
+
+- Frames around user, thinking and response blocks, and a styled collapsed-thinking line (wraps pi's Markdown render; falls back to header lines). `/chroma frames on|off`.
+
 ## [0.1.0]
 
 - Six themes: `chroma-{prism,circuit,rail}-{dark,light}`.

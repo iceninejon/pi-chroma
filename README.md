@@ -7,7 +7,7 @@ Three switchable visual styles for the [pi](https://pi.dev) coding agent — **P
 - a **plan widget**, fed by a `plan_update` tool the model can call;
 - a **frame around every tool call** (header, body, status, duration), turning red on failure;
 - a **stats row** after each prompt (decode tok/s, TTFT, total, in, cached %, out, cost), with an *interrupted* variant;
-- a framed **editor**, a startup banner, and a label for user / assistant / collapsed-thinking blocks.
+- **frames around the user, thinking and response blocks** (boxes in Prism, banded labels in Circuit, gutter rails in Rail), a framed **editor**, a startup banner, and a styled collapsed-thinking line.
 
 | Prism | Circuit | Rail |
 |---|---|---|
@@ -38,6 +38,7 @@ The extension chooses its own colours from `(style, theme.appearance)` and never
 | `/chroma` | Menu for **Style**, **Glyphs** and **Motion** |
 | `/chroma style prism\|circuit\|rail` | Saves the style and switches the matching `chroma-<style>-<light\|dark>` theme. pi stores the theme choice, so re-select your `light/dark` pair in `/settings` afterwards if you want automatic switching. |
 | `/chroma glyphs nerd\|unicode\|ascii` | Icon set |
+| `/chroma frames on\|off` | Frames around user / thinking / response blocks (on by default; see "How the block frames work") |
 | `/chroma motion full\|reduced\|off` | `reduced` freezes the spinner and shimmer but keeps counters (refreshed once a second); `off` also stops the elapsed timer |
 | `--chroma-style <style>` | Style for one run (also selects its theme) |
 | `PI_CHROMA_MOTION=reduced\|off` | Environment override for motion |
@@ -45,7 +46,7 @@ The extension chooses its own colours from `(style, theme.appearance)` and never
 Config lives in `~/.pi/agent/pi-chroma.json` (`PI_CODING_AGENT_DIR` is honoured; `PI_CHROMA_CONFIG` points at another file):
 
 ```json
-{ "style": "prism", "glyphs": "nerd", "motion": "full", "turnStats": true, "planWidget": true, "sessionRow": true }
+{ "style": "prism", "glyphs": "nerd", "motion": "full", "turnStats": true, "planWidget": true, "sessionRow": true, "frames": true }
 ```
 
 Press **Ctrl+T** (pi's *hide thinking*) to collapse thinking blocks to the `Thought for 2.4s · 180 tokens · ▸ collapsed` line.
@@ -71,24 +72,24 @@ On other backgrounds of similar lightness the palettes stay readable, but the pu
 
 Everything is laid out in terminal cells for the width pi passes in. Below 100 columns whole items are dropped in a fixed order (units, then sparkline, then cost, then provider …); paths and commands are ellipsised, numbers and status words never are. Footer row 2 hides below 60 columns.
 
+## How the block frames work
+
+pi has no public API for drawing the user, thinking and response blocks (checked again against pi 1.5.0; see `NOTES.md`). pi-chroma reaches them anyway, in a way that is **unofficial**:
+
+1. the Markdown transformer prefixes each of those blocks with an invisible marker saying what it is;
+2. `Markdown.prototype.render` and `Text.prototype.render` are wrapped: a marked block is rendered at a narrower width and surrounded with the style's chrome;
+3. the originals are restored when the session shuts down or reloads, and anything unexpected falls back to pi's own rendering.
+
+On start the extension probes the private fields it reads. If a future pi renames them, frames switch themselves off and the **fallback** takes over: a styled header line per block (`you`, `pi  <model>`), Rail's user message as a blockquote, and the collapsed-thinking line through pi's hidden-thinking label. You can also choose the fallback yourself with `/chroma frames off`.
+
 ## Known gaps
 
-pi draws user, assistant and thinking blocks itself and has no hook to redraw their frame (see `NOTES.md`, "Tier C"). Fallbacks:
-
-| Style | User message | Assistant | Thinking |
-|---|---|---|---|
-| Prism | pi's tinted panel + a `you` header line | `pi  <model>` header line | pi's italic thinking text; collapsed line via the hidden-thinking label |
-| Circuit | pi's panel + `YOU` arrow label | `PI  <model>` arrow label | same |
-| Rail | Markdown blockquote (the theme colours its border as the rail) + `you` header | `pi  <model>` header line | same |
-
-Consequences worth knowing:
-
-- Rail's blockquote trick colours **every** blockquote in a response with the same rail colour.
-- The header is added per assistant *text block*, so a turn with text between tool calls shows several `pi` headers.
-- The collapsed-thinking label is global in pi, so the duration shown on every collapsed block is the **latest** block's.
+- The collapsed-thinking label is global in pi, so the duration shown on every collapsed block is the **latest** block's. Collapse thinking with **Ctrl+T**.
 - The built-in loader is replaced by the status line, so pi's own "compacting" / "retrying" loader text is not shown.
 - The footer replaces pi's, so text other extensions publish with `setStatus` is not displayed.
 - Tools registered by other extensions keep their own `renderResult` output, nested inside our frame.
+- Other extensions that restyle the footer, editor or message blocks (for example `pi-zentui`, `pi-beautiful-tui`) fight with this one. Disable them.
+- With `/chroma frames off`: Rail's blockquote trick colours every blockquote in a response with the same rail colour, and a turn with text between tool calls shows several `pi` headers.
 
 ## Development
 
@@ -99,7 +100,7 @@ npm run typecheck
 npm test               # unit tests + golden comparison against the guide's redline frames
 ```
 
-- `src/styles/{prism,circuit,rail}.ts` build rows of `[text, style]` segments; `painter.ts` turns them into ANSI through the active pi theme; `tools.ts` and `metrics.ts` are pure.
+- `src/styles/{prism,circuit,rail}.ts` build rows of `[text, style]` segments, `src/styles/blocks.ts` lays out the message-block frames and `src/blocks.ts` installs the render wrappers; `painter.ts` turns them into ANSI through the active pi theme; `tools.ts` and `metrics.ts` are pure.
 - `test/golden/redlines.json` holds the redline frames (W = 100) extracted from the design guide; `test/redlines.test.ts` renders each element and compares text. `test/widths.test.ts` checks that nothing overflows its width at 12–200 columns in every style and glyph set.
 - `scripts/tui-harness.py` drives a real pi in a pty and dumps the emulated screen (needs `pip install pyte pexpect`); handy for checking widths, motion and interruption by hand. It runs against a throw-away agent dir (`CHROMA_AGENT_DIR`).
 - `scripts/gen-palettes.mjs` regenerates `src/palettes.ts` from the guide's `palettes.json`.

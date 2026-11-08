@@ -13,6 +13,8 @@ export interface ChromaConfig {
 	turnStats: boolean;
 	planWidget: boolean;
 	sessionRow: boolean;
+	/** Frame user / thinking / response blocks (unofficial: wraps pi's Markdown render). */
+	frames: boolean;
 }
 
 export const DEFAULT_CONFIG: ChromaConfig = {
@@ -22,6 +24,7 @@ export const DEFAULT_CONFIG: ChromaConfig = {
 	turnStats: true,
 	planWidget: true,
 	sessionRow: true,
+	frames: true,
 };
 
 export const STYLE_NAMES: StyleName[] = ["prism", "circuit", "rail"];
@@ -60,6 +63,7 @@ export function sanitize(raw: unknown): ChromaConfig {
 		turnStats: bool(o.turnStats, DEFAULT_CONFIG.turnStats),
 		planWidget: bool(o.planWidget, DEFAULT_CONFIG.planWidget),
 		sessionRow: bool(o.sessionRow, DEFAULT_CONFIG.sessionRow),
+		frames: bool(o.frames, DEFAULT_CONFIG.frames),
 	};
 }
 

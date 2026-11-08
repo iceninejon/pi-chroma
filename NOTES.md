@@ -29,15 +29,19 @@ Other facts that shaped the build:
 
 ## Tier C — framing built-in messages (§2.1)
 
-Searched `dist/modes/interactive/components/` (`user-message`, `assistant-message`, …) and `ExtensionUIContext`/`ExtensionAPI`:
+Searched `dist/modes/interactive/components/` (`user-message`, `assistant-message`, …), `ExtensionUIContext` and `ExtensionAPI` again against **pi 1.5.0**:
 
-- No factory, registry or `set*Component` hook exists for the built-in **user**, **assistant** or **thinking** blocks.
-- `registerMessageRenderer` only handles *custom* messages (`customType`).
-- The only reachable levers are the theme tokens, `registerMarkdownTransformer` (user / assistant / assistant-thinking Markdown) and `setHiddenThinkingLabel`.
+- **Official API: still none.** No factory, registry or `set*Component` hook for the built-in user, assistant or thinking blocks. `registerMessageRenderer` only handles *custom* messages (`customType`); `registerMarkdownTransformer` only rewrites the Markdown text; `setHiddenThinkingLabel` sets one global string.
+- **What is reachable:** all three blocks are `Markdown` components (`user-message.js`, `assistant-message.js`); the collapsed label is a `Text`. The extension loader aliases `@earendil-works/pi-tui` to the host's own module (`loader.js` `getAliases()` / virtual modules), so the `Markdown` and `Text` classes an extension imports are the very ones pi renders with. `Markdown.render()` takes its text through the transformer chain, which receives `messageType` (`user`, `assistant`, `assistant-thinking`), `messageId`, `timestamp`.
 
-So the documented fallbacks ship (see README "Known gaps"): a styled header line per block via the Markdown transformer, Rail's user message as a blockquote, and the collapsed-thinking line through the global hidden-thinking label.
+So frames are done by wrapping `Markdown.prototype.render` / `Text.prototype.render` (`src/blocks.ts`):
 
-An upstream issue proposing `registerMessageRenderer` support for the built-in roles would remove all of these gaps.
+- the transformer prefixes the block with an OSC sentinel (`ESC ] 7777;chroma;<json> BEL`), invisible in any terminal;
+- the wrapper sees the sentinel, renders the block at `width − chrome`, strips pi's own backgrounds and blank padding rows, and wraps the lines in the style's chrome (`src/styles/blocks.ts`);
+- originals are kept under `Symbol.for("pi-chroma.render.original")` and restored on `session_shutdown`, so `/reload` never stacks wrappers;
+- install first probes the private fields it relies on (`Markdown.text`, `Markdown.paddingX`, `Text.text`); if they are gone, nothing is patched and the header-line fallback (README) is used.
+
+Risks, accepted and documented: this depends on private fields and on `Markdown` being the renderer for these blocks. It is pinned by the probe, by a try/catch around every wrapped call, and by `/chroma frames off`. An upstream `registerMessageRenderer` for the built-in roles would replace all of it; worth an issue.
 
 ## Deviations from the mockup
 

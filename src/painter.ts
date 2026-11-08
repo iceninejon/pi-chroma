@@ -112,6 +112,13 @@ export class Painter {
 		return out;
 	}
 
+	/** Opening SGR sequence of a background colour (for re-asserting a band under pre-painted text). */
+	bgSeq(key: ColorKey): string {
+		const probe = this.theme.style("\u0001", { bg: this.color(key) });
+		const at = probe.indexOf("\u0001");
+		return at > 0 ? probe.slice(0, at) : "";
+	}
+
 	/** Paint a row to exactly `width` cells (padded with the band colour, or clipped). */
 	row(r: Row, width: number): string {
 		let line = this.segs(r.segs, r.band);
