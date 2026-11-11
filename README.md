@@ -29,6 +29,8 @@ pi -e /path/to/pi-chroma/src/extension.ts --theme /path/to/pi-chroma/themes --us
 
 Then pick a theme in `/settings` → **Theme**. To follow your terminal's light/dark mode, set the pair, for example `chroma-prism-light/chroma-prism-dark`.
 
+**The active theme decides the style**: pick `chroma-rail-dark`, or the pair `chroma-rail-light/chroma-rail-dark`, in `/settings` and you get Rail (the `style` in `pi-chroma.json` only applies while a non-chroma theme is active). Use the pair, not a single light or dark theme: a single theme stays light on a dark terminal and the text turns dark-on-dark.
+
 The extension chooses its own colours from `(style, theme.appearance)` and never hard-codes a mode. Colours that have a theme token are read from the active theme, so edits to the theme JSON take effect; pill fills, bands and the code chip come from the built-in palette.
 
 ## Use
@@ -36,11 +38,11 @@ The extension chooses its own colours from `(style, theme.appearance)` and never
 | | |
 |---|---|
 | `/chroma` | Menu for **Style**, **Glyphs** and **Motion** |
-| `/chroma style prism\|circuit\|rail` | Saves the style and switches the matching `chroma-<style>-<light\|dark>` theme. pi stores the theme choice, so re-select your `light/dark` pair in `/settings` afterwards if you want automatic switching. |
+| `/chroma style prism\|circuit\|rail` | Saves the style and switches to the matching `chroma-<style>-<light\|dark>` theme. An extension can only set one fixed theme (pi stores it), so afterwards set the **pair** `chroma-<style>-light/chroma-<style>-dark` in `/settings` to follow your terminal. |
 | `/chroma glyphs nerd\|unicode\|ascii` | Icon set |
 | `/chroma frames on\|off` | Frames around user / thinking / response blocks (on by default; see "How the block frames work") |
 | `/chroma motion full\|reduced\|off` | `reduced` freezes the spinner and shimmer but keeps counters (refreshed once a second); `off` also stops the elapsed timer |
-| `--chroma-style <style>` | Style for one run (also selects its theme) |
+| `--chroma-style <style>` | Style for one run; does not touch your theme setting. Add `--use-theme chroma-<style>-dark` to colour pi's own text to match |
 | `PI_CHROMA_MOTION=reduced\|off` | Environment override for motion |
 
 Config lives in `~/.pi/agent/pi-chroma.json` (`PI_CODING_AGENT_DIR` is honoured; `PI_CHROMA_CONFIG` points at another file):

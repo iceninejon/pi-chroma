@@ -128,11 +128,10 @@ export default function piChroma(pi: ExtensionAPI): void {
 		}
 		rt.ctx = ctx;
 		rt.config = loadConfig();
+		// One-run override. It does not touch pi's theme setting (setTheme would persist it); pair it with
+		// `--use-theme chroma-<style>-dark` to colour pi's own text to match.
 		const flag = pi.getFlag("chroma-style");
-		if (isStyle(flag)) {
-			rt.config.style = flag;
-			ctx.ui.setTheme(themeName(flag, ctx));
-		}
+		rt.styleOverride = isStyle(flag) ? flag : undefined;
 		rt.invalidatePainter();
 		installBlockFrames();
 		rt.outputPad = ((pi.getSettings() as { outputPad?: number }).outputPad ?? 1) === 0 ? 0 : 1;
@@ -339,7 +338,7 @@ function registerTransformer(pi: ExtensionAPI): void {
 		if (ctx.messageType === "assistant-thinking") return markdown;
 		const who = ctx.messageType === "user" ? "user" : "assistant";
 		const g = rt.g;
-		const style = rt.config.style;
+		const style = rt.style;
 		let model: string | undefined;
 		if (who === "assistant") {
 			model = rt.modelId;
@@ -366,6 +365,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 	const apply = {
 		style(ctx: ExtensionContext, style: StyleName) {
 			rt.config.style = style;
+			rt.styleOverride = undefined;
 			saveConfig(rt.config);
 			rt.invalidatePainter();
 			const res = ctx.ui.setTheme(themeName(style, ctx));
@@ -375,7 +375,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 			if (!res.success) ctx.ui.notify(`pi-chroma: could not switch theme (${res.error ?? "unknown error"})`, "error");
 			else {
 				ctx.ui.notify(
-					`Style: ${STYLE_TITLES[style]} · set Theme → chroma-${style}-light/chroma-${style}-dark in /settings to follow your terminal`,
+					`Style: ${STYLE_TITLES[style]} · pi pinned ${themeName(style, ctx)}. To follow your terminal's light/dark mode set Theme → chroma-${style}-light/chroma-${style}-dark in /settings`,
 					"info",
 				);
 			}
@@ -435,7 +435,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 				return;
 			}
 			const pick = await ctx.ui.select("pi-chroma", [
-				`Style · ${rt.config.style}`,
+				`Style · ${rt.style}`,
 				`Glyphs · ${rt.config.glyphs}`,
 				`Motion · ${rt.config.motion}`,
 				`Block frames · ${rt.config.frames ? "on" : "off"}`,

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.1]
+
+- The active chroma theme now decides the style (theme pairs and `/settings` just work); `--chroma-style` no longer rewrites pi's theme setting.
+
 ## [0.2.0]
 
 - Frames around user, thinking and response blocks, and a styled collapsed-thinking line (wraps pi's Markdown render; falls back to header lines). `/chroma frames on|off`.

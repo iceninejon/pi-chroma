@@ -120,7 +120,7 @@ function frameMarkdown(md: MarkdownLike, width: number, orig: Render): string[] 
 	const painter = rt.painter();
 	const env = rt.env(width);
 	const p = typeof md.paddingX === "number" ? md.paddingX : env.pad;
-	const layout = blockLayout(rt.config.style);
+	const layout = blockLayout(rt.style);
 
 	// Time: persisted entries carry an ISO timestamp; live blocks use the moment they were first drawn.
 	if (!firstSeen.has(md)) firstSeen.set(md, Date.now());
@@ -200,7 +200,7 @@ export function installBlockFrames(): boolean {
 				try {
 					const payload = parse(text);
 					if (payload?.k === "collapsed") {
-						return blockLayout(rt.config.style).collapsed(rt.env(width), payload.d ?? "", payload.n ?? 0, rt.painter());
+						return blockLayout(rt.style).collapsed(rt.env(width), payload.d ?? "", payload.n ?? 0, rt.painter());
 					}
 				} catch {
 					/* fall through */

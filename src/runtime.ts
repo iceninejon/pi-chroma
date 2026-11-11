@@ -18,7 +18,7 @@ import {
 	type SessionTotals,
 } from "./metrics.ts";
 import { appearanceOf, Painter } from "./painter.ts";
-import type { ThinkLevel } from "./palettes.ts";
+import type { StyleName, ThinkLevel } from "./palettes.ts";
 import { circuit } from "./styles/circuit.ts";
 import { prism } from "./styles/prism.ts";
 import { railStyle } from "./styles/rail.ts";
@@ -59,8 +59,22 @@ export class Runtime {
 		return effectiveMotion(this.config);
 	}
 
+	/** `--chroma-style` for this run; wins over everything. */
+	styleOverride: StyleName | undefined;
+
+	/**
+	 * The style in use: the `--chroma-style` flag, else the style of the active chroma theme (so picking a theme or a
+	 * light/dark pair in /settings is enough), else the configured style.
+	 */
+	get style(): StyleName {
+		if (this.styleOverride) return this.styleOverride;
+		const name = this.safe(() => this.ctx?.ui.theme.name);
+		const m = typeof name === "string" ? name.match(/^chroma-(prism|circuit|rail)-(?:light|dark)$/) : null;
+		return (m?.[1] as StyleName | undefined) ?? this.config.style;
+	}
+
 	get impl(): StyleImpl {
-		return IMPLS[this.config.style];
+		return IMPLS[this.style];
 	}
 
 	get g(): Glyphs {
@@ -81,9 +95,10 @@ export class Runtime {
 	painter(fallback?: Theme): Painter {
 		const theme = this.theme(fallback);
 		const c = this.painterCache;
-		if (c && c.theme === theme && c.style === this.config.style) return c.painter;
-		const painter = new Painter(theme, this.config.style);
-		this.painterCache = { theme, style: this.config.style, painter };
+		const style = this.style;
+		if (c && c.theme === theme && c.style === style) return c.painter;
+		const painter = new Painter(theme, style);
+		this.painterCache = { theme, style, painter };
 		return painter;
 	}
 
