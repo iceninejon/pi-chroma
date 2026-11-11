@@ -2,7 +2,7 @@
 
 Three switchable visual styles for the [pi](https://pi.dev) coding agent — **Prism**, **Circuit** and **Rail** — each with a light and a dark theme, plus a TUI extension that draws:
 
-- a two-row **footer** (provider / model / thinking level / context gauge / git, and a session row with totals and a TPS sparkline);
+- a one-row **footer**: provider / model / thinking level / context gauge on the left; session tokens in and out, cost, a TPS sparkline and git on the right;
 - a live **status line** (spinner, shimmer verb, elapsed, TTFT, streamed tokens) and a **context-pressure warning**;
 - a **plan widget**, fed by a `plan_update` tool the model can call;
 - a **frame around every tool call** (header, body, status, duration), turning red on failure;
@@ -72,7 +72,7 @@ On other backgrounds of similar lightness the palettes stay readable, but the pu
 
 ## Responsive behaviour
 
-Everything is laid out in terminal cells for the width pi passes in. Below 100 columns whole items are dropped in a fixed order (units, then sparkline, then cost, then provider …); paths and commands are ellipsised, numbers and status words never are. Footer row 2 hides below 60 columns.
+Everything is laid out in terminal cells for the width pi passes in. When the footer does not fit, things are dropped in this order until it does: TPS sparkline (shortened first), cost, `used/total`, the long context bar, the provider name, session tokens, the git branch, and finally everything except the model and the context percentage. Paths and commands elsewhere are ellipsised; numbers and status words never are.
 
 ## How the block frames work
 

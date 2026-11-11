@@ -1,8 +1,9 @@
 // Rail — no boxes: a coloured gutter rail and a glyph mark each block (guide §11).
-import { bar, clipSegs, lr, row, segW, sp, w, type ColorKey, type Row, type Seg } from "../grid.ts";
+import { bar, clipSegs, lr, row, segW, sp, spark as sparkSegs, w, type ColorKey, type Row, type Seg } from "../grid.ts";
 import { middleEllipsis, pct, tokens } from "../format.ts";
-import { bold, chipUnit, fitArg, fitSpark, INLINE_CODE, planRows, shimmer, spinFrame, st, statsPlan } from "./common.ts";
+import { bold, chipUnit, fitArg, fitFooter, INLINE_CODE, planRows, shimmer, spinFrame, st, statsPlan } from "./common.ts";
 import type { Env, FooterV, StatusV, StyleImpl, ToolV } from "./types.ts";
+import type { FooterFlags } from "./common.ts";
 
 const rail = (env: Env, c: ColorKey, ch = "▎"): Seg[] => [sp(env.pad), [ch, st(c)], sp(2)];
 
@@ -29,65 +30,39 @@ function statusLine(env: Env, v: StatusV): Row[] {
 function footerRows(env: Env, v: FooterV): Row[] {
 	const { g, W } = env;
 	const c = v.color;
-	const right: Seg[] = v.branch
-		? [[g.branch ? g.branch + " " : "", st("s5")], [v.branch, st("fg")], [v.dirty ? ` ±${v.dirty} ` : " ", st("warn")]]
-		: [];
-	const ctxBar = (n: number): Seg[] => bar(v.fraction, n, "━", "╌", st(c), st("border"));
 	const lvl: Seg[] = [[g.brain + " ", st(v.levelColor)], [v.level, st("fg")]];
-	const prov: Seg[] = [[g.cloud ? g.cloud + " " : "", st("s1")], [v.provider, st("fg")], ["/", st("dim")], [v.model, bold("fg")]];
-	const ctx = (n: number, totals: boolean): Seg[] => [
-		["ctx ", st("dim")],
-		...ctxBar(n),
-		[` ${pct(v.fraction)}`, bold("fg")],
-		...(totals ? ([[` ${tokens(v.usedTokens)}/${tokens(v.windowTokens)}`, st("muted")]] as Seg[]) : []),
-	];
-	const levels: Seg[][] = [
-		[sp(1), ...prov, sp(3), ...lvl, sp(3), ...ctx(16, true)],
-		[sp(1), ...prov, sp(3), ...lvl, sp(3), ...ctx(16, false)],
-		[sp(1), ...prov, sp(3), ...lvl, sp(3), ...ctx(8, false)],
-		[sp(1), [g.cloud ? g.cloud + " " : "", st("s1")], [v.model, bold("fg")], sp(3), ...lvl, sp(3), ...ctx(8, false)],
-		[sp(1), [v.model, bold("fg")], sp(3), ["ctx ", st("dim")], [pct(v.fraction), bold("fg")]],
-	];
-	const start = W >= 100 ? 0 : W >= 80 ? 1 : W >= 60 ? 3 : 4;
-	let r1: Row | undefined;
-	for (let i = start; i < levels.length; i++) {
-		if (segW(levels[i]) + segW(right) + 1 <= W) {
-			r1 = lr(levels[i], right, W);
-			break;
-		}
-	}
-	r1 ??= lr(clipSegs(levels[levels.length - 1], W), [], W);
-	const rows: Row[] = [r1];
-
-	if (v.sessionRow && W >= 60) {
-		const barN = (n: number): Seg[] => bar(v.fraction, n, "━", "╌", st(c), st("border"));
-		const head: Seg[] = [sp(1), ["session  ", st("dim")]];
-		const names = (providerToo: boolean): Seg[] => [
-			[providerToo ? `${v.provider} · ${v.model} · ${tokens(v.windowTokens)}` : `${v.model} · ${tokens(v.windowTokens)}`, st("muted")],
+	const build = (f: FooterFlags) => {
+		const ctxBar = bar(v.fraction, f.shortBar ? 8 : 16, "━", "╌", st(c), st("border"));
+		const ctx: Seg[] = [
+			["ctx ", st("dim")],
+			...ctxBar,
+			[` ${pct(v.fraction)}`, bold("fg")],
+			...(f.totals ? ([[` ${tokens(v.usedTokens)}/${tokens(v.windowTokens)}`, st("muted")]] as Seg[]) : []),
 		];
-		const win = (n: number): Seg[] => [...barN(n), [` ${pct(v.fraction)}`, st("muted")]];
-		const io: Seg[] = [sp(3), [g.up + " ", st("user")], [tokens(v.sessIn), st("fg")], sp(1), [g.down + " ", st("accent")], [tokens(v.sessOut), st("fg")]];
-		const cost: Seg[] = v.cost > 0 ? [sp(3), [`$${v.cost.toFixed(2)}`, st("tool")]] : [];
-		const spkFor = (avail: number): Seg[] =>
-			fitSpark(v.tps, avail, 5, (sp4) => [...sp4.map((x) => [x[0], st("s4")] as Seg), [" tps ", st("dim")]], g.railSpark);
-		const cand: { left: Seg[]; right: Seg[]; fit?: boolean }[] = [
-			{ left: [...head, ...names(true), sp(2), ...win(8), ...io, ...cost], right: [] as Seg[], fit: true },
-			{ left: [...head, ...names(true), sp(2), ...win(8), ...io, ...cost], right: [] as Seg[] },
-			{ left: [...head, ...names(true), sp(2), ...win(8), ...io], right: [] as Seg[] },
-			{ left: [...head, ...names(false), sp(2), ...win(4), ...io], right: [] as Seg[] },
-		];
-		const s2 = W >= 100 ? 0 : W >= 80 ? 1 : 3;
-		let r2: Row | undefined;
-		for (let i = s2; i < cand.length; i++) {
-			if (cand[i].fit) cand[i].right = spkFor(W - segW(cand[i].left) - 1);
-			if (segW(cand[i].left) + segW(cand[i].right) + 1 <= W) {
-				r2 = lr(cand[i].left, cand[i].right, W);
-				break;
-			}
-		}
-		rows.push(r2 ?? lr(clipSegs(cand[cand.length - 1].left, W), [], W));
-	}
-	return rows;
+		const prov: Seg[] =
+			f.provider === "full"
+				? [[g.cloud ? g.cloud + " " : "", st("s1")], [v.provider, st("fg")], ["/", st("dim")], [v.model, bold("fg")]]
+				: f.provider === "glyph"
+					? [[g.cloud ? g.cloud + " " : "", st("s1")], [v.model, bold("fg")]]
+					: [[v.model, bold("fg")]];
+		const left: Seg[] = f.minimal
+			? [sp(1), ...prov, sp(3), ["ctx ", st("dim")], [pct(v.fraction), bold("fg")]]
+			: [sp(1), ...prov, sp(3), ...lvl, sp(3), ...ctx];
+		const right: Seg[] = [];
+		const group = (segs: Seg[]) => {
+			if (right.length) right.push(sp(3));
+			right.push(...segs);
+		};
+		if (v.sessionRow && f.io) group([[g.up + " ", st("user")], [tokens(v.sessIn), st("fg")], sp(1), [g.down + " ", st("accent")], [tokens(v.sessOut), st("fg")]]);
+		if (v.sessionRow && f.io && f.cost && v.cost > 0) group([[`$${v.cost.toFixed(2)}`, st("tool")]]);
+		if (v.sessionRow && f.io && f.spark && v.tps.length >= 3) group([...sparkSegs(v.tps.slice(-f.spark), g.railSpark, st("s4")), [" tps", st("dim")]]);
+		if (f.branch && v.branch) {
+			if (right.length) right.push(sp(3));
+			right.push([g.branch ? g.branch + " " : "", st("s5")], [v.branch, st("fg")], [v.dirty ? ` ±${v.dirty} ` : " ", st("warn")]);
+		} else if (right.length) right.push(sp(1));
+		return { left, right };
+	};
+	return [fitFooter(W, build)];
 }
 
 function toolFrame(env: Env, v: ToolV): Row[] {

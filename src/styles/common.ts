@@ -1,5 +1,5 @@
 // Pieces shared by the three styles.
-import { clipSegs, sp, spark as sparkSegs, type ColorKey, type Row, type Seg, type St } from "../grid.ts";
+import { clipSegs, lr, segW, sp, spark as sparkSegs, type ColorKey, type Row, type Seg, type St } from "../grid.ts";
 import type { Env, Chip, PlanItem } from "./types.ts";
 import type { StyleImpl } from "./types.ts";
 import type { Glyphs } from "../glyphs.ts";
@@ -123,20 +123,45 @@ export function fitArg(arg: string, max: number, isPath: boolean, mid: (t: strin
 	return isPath ? mid(arg, max) : chars.slice(0, Math.max(0, max - 1)).join("") + "…";
 }
 
-/**
- * Right-hand sparkline group that shrinks to the most recent points instead of overflowing:
- * `build(spark)` wraps the spark segments with the style's label / padding, `fixed` is the width of that wrapping.
- * Returns [] when fewer than 3 points would fit.
- */
-export function fitSpark(
-	values: readonly number[],
-	avail: number,
-	fixed: number,
-	build: (spark: Seg[]) => Seg[],
-	chars: string,
-): Seg[] {
-	const n = Math.min(values.length, avail - fixed);
-	if (n < 3) return [];
-	return build(sparkSegs(values.slice(-n), chars, {}));
+// ── Footer: one row, degraded by priority (guide §5.4, reworked) ──────────
+
+export interface FooterFlags {
+	/** Sparkline points to show (0 = hidden) */
+	spark: number;
+	cost: boolean;
+	/** `used/total` after the context percentage */
+	totals: boolean;
+	shortBar: boolean;
+	provider: "full" | "glyph" | "none";
+	/** Session ↑in ↓out */
+	io: boolean;
+	branch: boolean;
+	/** Model + context % only */
+	minimal: boolean;
 }
 
+/** Richest first. The first step whose row fits is used, so the least important things go first. */
+export const FOOTER_STEPS: FooterFlags[] = [
+	{ spark: 8, cost: true, totals: true, shortBar: false, provider: "full", io: true, branch: true, minimal: false },
+	{ spark: 5, cost: true, totals: true, shortBar: false, provider: "full", io: true, branch: true, minimal: false },
+	{ spark: 0, cost: true, totals: true, shortBar: false, provider: "full", io: true, branch: true, minimal: false },
+	{ spark: 0, cost: false, totals: true, shortBar: false, provider: "full", io: true, branch: true, minimal: false },
+	{ spark: 0, cost: false, totals: false, shortBar: false, provider: "full", io: true, branch: true, minimal: false },
+	{ spark: 0, cost: false, totals: false, shortBar: true, provider: "full", io: true, branch: true, minimal: false },
+	{ spark: 0, cost: false, totals: false, shortBar: true, provider: "glyph", io: true, branch: true, minimal: false },
+	{ spark: 0, cost: false, totals: false, shortBar: true, provider: "glyph", io: false, branch: true, minimal: false },
+	{ spark: 0, cost: false, totals: false, shortBar: true, provider: "glyph", io: false, branch: false, minimal: false },
+	{ spark: 0, cost: false, totals: false, shortBar: true, provider: "none", io: false, branch: false, minimal: true },
+];
+
+export function fitFooter(
+	W: number,
+	build: (f: FooterFlags) => { left: Seg[]; right: Seg[] },
+): Row {
+	let last: { left: Seg[]; right: Seg[] } = { left: [], right: [] };
+	for (const f of FOOTER_STEPS) {
+		last = build(f);
+		if (segW(last.left) + segW(last.right) + 2 <= W) return lr(last.left, last.right, W);
+	}
+	return lr(clipSegs(last.left, W), [], W);
+}

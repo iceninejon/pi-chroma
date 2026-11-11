@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.0]
+
+- Footer is one row: session ↑in ↓out, cost and TPS sparkline moved next to the context gauge; the second row is gone. Cost and sparkline are dropped first when space runs out.
+
 ## [0.2.1]
 
 - The active chroma theme now decides the style (theme pairs and `/settings` just work); `--chroma-style` no longer rewrites pi's theme setting.

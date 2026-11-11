@@ -31,36 +31,6 @@ for (const style of STYLES) {
 	const impl = IMPL[style];
 	const p = painter(style);
 
-	test(`${style}: footer, done frame`, () => {
-		const got = plain(p, impl.footer(env(100), footer()), 100);
-		const want = rowsOf(style, "done", 52, 53);
-		if (style === "rail") {
-			// The mockup clips Rail's 8-point sparkline to "…" at W = 100; we shorten the sparkline instead.
-			assert.equal(got[0], want[0]);
-			const head = want[1].replace(/ [⡀-⣿]+ tp…$/, "");
-			assert.ok(got[1].startsWith(head), got[1]);
-			assert.ok(/ [⡀-⣿]{3,} tps$/.test(got[1]), got[1]);
-			return;
-		}
-		assert.deepEqual(got, want);
-	});
-
-	test(`${style}: footer, thinking frame (30%, 59.3k, 7-value sparkline)`, () => {
-		const got = plain(p, impl.footer(env(100), footer({ usedTokens: 59300, fraction: 0.2965, tps: [71, 84, 79, 92, 88, 64, 90], sessIn: 364800, sessOut: 38300, cost: 1.82 })), 100);
-		assert.deepEqual(got, rowsOf(style, "thinking", 52, 53));
-	});
-
-	test(`${style}: footer, context pressure`, () => {
-		const got = plain(p, impl.footer(env(100), footer({ usedTokens: 171900, fraction: 0.8595, color: "warn" })), 100);
-		const want = rowsOf(style, "pressure", 52, 53);
-		if (style === "rail") {
-			assert.equal(got[0], want[0]);
-			assert.ok(got[1].startsWith(want[1].replace(/ [⡀-⣿]+ tp…$/, "")), got[1]);
-			return;
-		}
-		assert.deepEqual(got, want);
-	});
-
 	test(`${style}: warning`, () => {
 		const got = plain(p, impl.warning(env(100), { pct: "86%", pointPct: 90, compactionEnabled: true }), 100);
 		assert.deepEqual(got, rowsOf(style, "pressure", 48, 48));

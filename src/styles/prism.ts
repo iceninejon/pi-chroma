@@ -1,8 +1,9 @@
 // Prism — Charm-style softness: rounded boxes, capped pills, chips (guide §9).
-import { bar, box, clipSegs, lr, row, segW, sp, w, type Row, type Seg } from "../grid.ts";
+import { bar, box, clipSegs, lr, row, segW, sp, spark as sparkSegs, w, type Row, type Seg } from "../grid.ts";
 import { middleEllipsis, pct, tokens } from "../format.ts";
-import { bold, chipUnit, fitArg, fitSpark, INLINE_CODE, pill, planRows, shimmer, spinFrame, st, statsPlan } from "./common.ts";
+import { bold, chipUnit, fitArg, fitFooter, INLINE_CODE, pill, planRows, shimmer, spinFrame, st, statsPlan } from "./common.ts";
 import type { Env, FooterV, StyleImpl, ToolV } from "./types.ts";
+import type { FooterFlags } from "./common.ts";
 
 const indentOf = (env: Env) => env.pad;
 const boxW = (env: Env) => Math.max(8, env.W - 2 * env.pad);
@@ -32,68 +33,39 @@ function statusLine(env: Env, v: import("./types.ts").StatusV): Row[] {
 function footerRows(env: Env, v: FooterV): Row[] {
 	const { g, W } = env;
 	const c = v.color;
-	const ctxBar = (n: number): Seg[] => bar(v.fraction, n, "━", "━", st(c), st("border"));
 	const levelPill =
 		v.level === "off" || v.level === "minimal"
 			? pill(g, ` ${g.brain} ${v.level} `, "panel", "fg")
 			: pill(g, ` ${g.brain} ${v.level} `, v.levelColor);
-	const right: Seg[] = v.branch
-		? [...pill(g, ` ${g.branch} ${v.branch} `, "s5"), ...(v.dirty > 0 ? [[` ±${v.dirty} `, bold("warn")] as Seg] : [sp(1)])]
-		: [];
 	const gauge: Seg = [g.gauge + " ", st(c)];
-	const used: Seg = [` ${tokens(v.usedTokens)}/${tokens(v.windowTokens)}`, st("muted")];
 	const percent: Seg = [` ${pct(v.fraction)}`, bold("fg")];
-	const levels: Seg[][] = [
-		// 0 full
-		[sp(1), ...pill(g, ` ${g.cloud} ${v.provider} `, "s1"), sp(1), ...pill(g, ` ${g.chip} ${v.model} `, "s2"), sp(1), ...levelPill, sp(2), gauge, ...ctxBar(14), percent, used],
-		// 1 drop used/total
-		[sp(1), ...pill(g, ` ${g.cloud} ${v.provider} `, "s1"), sp(1), ...pill(g, ` ${g.chip} ${v.model} `, "s2"), sp(1), ...levelPill, sp(2), gauge, ...ctxBar(14), percent],
-		// 2 shorten bar
-		[sp(1), ...pill(g, ` ${g.cloud} ${v.provider} `, "s1"), sp(1), ...pill(g, ` ${g.chip} ${v.model} `, "s2"), sp(1), ...levelPill, sp(2), gauge, ...ctxBar(8), percent],
-		// 3 provider pill → glyph only
-		[sp(1), ...pill(g, ` ${g.cloud || "·"} `, "s1"), sp(1), ...pill(g, ` ${g.chip} ${v.model} `, "s2"), sp(1), ...levelPill, sp(2), gauge, ...ctxBar(8), percent],
-		// 4 model + context % only
-		[sp(1), ...pill(g, ` ${g.chip} ${v.model} `, "s2"), sp(2), gauge, percent],
-	];
-	const start = W >= 100 ? 0 : W >= 80 ? 1 : W >= 60 ? 3 : 4;
-	let r1: Row | undefined;
-	for (let i = start; i < levels.length; i++) {
-		if (segW(levels[i]) + segW(right) + 1 <= W) {
-			r1 = lr(levels[i], right, W);
-			break;
-		}
-	}
-	r1 ??= lr(clipSegs(levels[levels.length - 1], W), [], W);
-	const rows: Row[] = [r1];
-
-	if (v.sessionRow && W >= 60) {
-		const barN = (n: number) => bar(v.fraction, n, "━", "━", st(c), st("border"));
-		const head: Seg[] = [sp(2), ["session  ", bold("dim")]];
-		const names = (providerToo: boolean): Seg[] =>
-			providerToo ? [[v.provider, st("muted")], [" › ", st("dim")], [v.model, st("muted")]] : [[v.model, st("muted")]];
-		const win = (n: number): Seg[] => [[tokens(v.windowTokens) + " ", st("muted")], ...barN(n), [` ${pct(v.fraction)}`, bold("muted")]];
-		const io: Seg[] = [sp(2), [g.up + " ", st("user")], [tokens(v.sessIn), st("fg")], sp(1), [g.down + " ", st("accent")], [tokens(v.sessOut), st("fg")]];
-		const cost: Seg[] = v.cost > 0 ? [sp(2), [g.dollar + " ", st("tool")], [v.cost.toFixed(2), st("fg")]] : [];
-		const spkFor = (avail: number): Seg[] =>
-			fitSpark(v.tps, avail, 6, (sp4) => [["tps ", st("dim")], ...sp4.map((x) => [x[0], st("s4")] as Seg), sp(2)], g.spark);
-		const cand: { left: Seg[]; right: Seg[]; fit?: boolean }[] = [
-			{ left: [...head, ...names(true), sp(2), ...win(6), ...io, ...cost], right: [] as Seg[], fit: true },
-			{ left: [...head, ...names(true), sp(2), ...win(6), ...io, ...cost], right: [] },
-			{ left: [...head, ...names(true), sp(2), ...win(6), ...io], right: [] },
-			{ left: [...head, ...names(false), sp(2), ...win(4), ...io], right: [] },
-		];
-		const s2 = W >= 100 ? 0 : W >= 80 ? 1 : 3;
-		let r2: Row | undefined;
-		for (let i = s2; i < cand.length; i++) {
-			if (cand[i].fit) cand[i].right = spkFor(W - segW(cand[i].left) - 1);
-			if (segW(cand[i].left) + segW(cand[i].right) + 1 <= W) {
-				r2 = lr(cand[i].left, cand[i].right, W);
-				break;
-			}
-		}
-		rows.push(r2 ?? lr(clipSegs(cand[cand.length - 1].left, W), [], W));
-	}
-	return rows;
+	const build = (f: FooterFlags) => {
+		const ctxBar = bar(v.fraction, f.shortBar ? 8 : 14, "━", "━", st(c), st("border"));
+		const used: Seg[] = f.totals ? [[` ${tokens(v.usedTokens)}/${tokens(v.windowTokens)}`, st("muted")]] : [];
+		const providerPill: Seg[] =
+			f.provider === "full"
+				? [...pill(g, ` ${g.cloud} ${v.provider} `, "s1"), sp(1)]
+				: f.provider === "glyph"
+					? [...pill(g, ` ${g.cloud || "·"} `, "s1"), sp(1)]
+					: [];
+		const left: Seg[] = f.minimal
+			? [sp(1), ...pill(g, ` ${g.chip} ${v.model} `, "s2"), sp(2), gauge, percent]
+			: [sp(1), ...providerPill, ...pill(g, ` ${g.chip} ${v.model} `, "s2"), sp(1), ...levelPill, sp(2), gauge, ...ctxBar, percent, ...used];
+		const right: Seg[] = [];
+		const group = (segs: Seg[]) => {
+			if (right.length) right.push(sp(2));
+			right.push(...segs);
+		};
+		if (v.sessionRow && f.io) group([[g.up + " ", st("user")], [tokens(v.sessIn), st("fg")], sp(1), [g.down + " ", st("accent")], [tokens(v.sessOut), st("fg")]]);
+		if (v.sessionRow && f.io && f.cost && v.cost > 0) group([[g.dollar + " ", st("tool")], [v.cost.toFixed(2), st("fg")]]);
+		if (v.sessionRow && f.io && f.spark && v.tps.length >= 3) group([["tps ", st("dim")], ...sparkSegs(v.tps.slice(-f.spark), g.spark, st("s4"))]);
+		if (f.branch && v.branch) {
+			if (right.length) right.push(sp(2));
+			right.push(...pill(g, ` ${g.branch} ${v.branch} `, "s5"), ...(v.dirty > 0 ? ([[` ±${v.dirty} `, bold("warn")]] as Seg[]) : [sp(1)]));
+		} else if (right.length) right.push(sp(1));
+		return { left, right };
+	};
+	return [fitFooter(W, build)];
 }
 
 function toolFrame(env: Env, v: ToolV): Row[] {
