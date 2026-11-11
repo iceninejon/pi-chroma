@@ -47,7 +47,10 @@ export class Dock extends RowsComponent {
 
 export class Footer extends RowsComponent {
 	protected rows(width: number): Row[] {
-		return rt.impl.footer(rt.env(width), rt.footerView());
+		const rows = rt.impl.footer(rt.env(width), rt.footerView());
+		// Padding under the footer keeps clear of a multiplexer's status bar.
+		for (let i = 0; i < rt.config.bottomPad; i++) rows.push(BLANK);
+		return rows;
 	}
 }
 

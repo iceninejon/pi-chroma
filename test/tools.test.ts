@@ -73,6 +73,10 @@ test("config sanitize / motion override / round trip", () => {
 	assert.deepEqual(sanitize(null), DEFAULT_CONFIG);
 	assert.equal(sanitize({ style: "nope", glyphs: "ascii", motion: 3 }).style, "prism");
 	assert.equal(sanitize({ glyphs: "ascii" }).glyphs, "ascii");
+	assert.equal(sanitize({ bottomPad: 2 }).bottomPad, 2);
+	assert.equal(sanitize({ bottomPad: 9 }).bottomPad, 3);
+	assert.equal(sanitize({ bottomPad: -1 }).bottomPad, 0);
+	assert.equal(sanitize({ bottomPad: "x" }).bottomPad, 0);
 	assert.equal(effectiveMotion({ ...DEFAULT_CONFIG, motion: "full" }, { PI_CHROMA_MOTION: "off" } as never), "off");
 	assert.equal(effectiveMotion({ ...DEFAULT_CONFIG, motion: "reduced" }, {} as never), "reduced");
 	const file = join(mkdtempSync(join(tmpdir(), "chroma-")), "sub", "c.json");

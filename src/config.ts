@@ -15,6 +15,8 @@ export interface ChromaConfig {
 	sessionRow: boolean;
 	/** Frame user / thinking / response blocks (unofficial: wraps pi's Markdown render). */
 	frames: boolean;
+	/** Blank rows under the footer, e.g. to keep clear of a tmux status bar (0-3). */
+	bottomPad: number;
 }
 
 export const DEFAULT_CONFIG: ChromaConfig = {
@@ -25,6 +27,7 @@ export const DEFAULT_CONFIG: ChromaConfig = {
 	planWidget: true,
 	sessionRow: true,
 	frames: true,
+	bottomPad: 0,
 };
 
 export const STYLE_NAMES: StyleName[] = ["prism", "circuit", "rail"];
@@ -64,6 +67,7 @@ export function sanitize(raw: unknown): ChromaConfig {
 		planWidget: bool(o.planWidget, DEFAULT_CONFIG.planWidget),
 		sessionRow: bool(o.sessionRow, DEFAULT_CONFIG.sessionRow),
 		frames: bool(o.frames, DEFAULT_CONFIG.frames),
+		bottomPad: typeof o.bottomPad === "number" && Number.isFinite(o.bottomPad) ? Math.min(3, Math.max(0, Math.round(o.bottomPad))) : DEFAULT_CONFIG.bottomPad,
 	};
 }
 

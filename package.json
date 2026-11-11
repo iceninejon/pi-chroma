@@ -1,6 +1,6 @@
 {
   "name": "pi-chroma",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Three switchable visual styles (Prism, Circuit, Rail) for the pi coding agent: themes plus a TUI extension for tool frames, status line, plan widget, turn stats and a two-row footer.",
   "type": "module",
   "keywords": [

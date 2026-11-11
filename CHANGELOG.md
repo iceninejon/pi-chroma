@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.1]
+
+- `/chroma padding 0-3` (`bottomPad`): blank rows under the footer, for multiplexer status bars.
+
 ## [0.3.0]
 
 - Footer is one row: session ↑in ↓out, cost and TPS sparkline moved next to the context gauge; the second row is gone. Cost and sparkline are dropped first when space runs out.

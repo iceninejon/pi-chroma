@@ -41,6 +41,7 @@ The extension chooses its own colours from `(style, theme.appearance)` and never
 | `/chroma style prism\|circuit\|rail` | Saves the style and switches to the matching `chroma-<style>-<light\|dark>` theme. An extension can only set one fixed theme (pi stores it), so afterwards set the **pair** `chroma-<style>-light/chroma-<style>-dark` in `/settings` to follow your terminal. |
 | `/chroma glyphs nerd\|unicode\|ascii` | Icon set |
 | `/chroma frames on\|off` | Frames around user / thinking / response blocks (on by default; see "How the block frames work") |
+| `/chroma padding 0\|1\|2\|3` | Blank rows under the footer, to keep clear of a tmux / rmux status bar (default 0) |
 | `/chroma motion full\|reduced\|off` | `reduced` freezes the spinner and shimmer but keeps counters (refreshed once a second); `off` also stops the elapsed timer |
 | `--chroma-style <style>` | Style for one run; does not touch your theme setting. Add `--use-theme chroma-<style>-dark` to colour pi's own text to match |
 | `PI_CHROMA_MOTION=reduced\|off` | Environment override for motion |
@@ -48,7 +49,7 @@ The extension chooses its own colours from `(style, theme.appearance)` and never
 Config lives in `~/.pi/agent/pi-chroma.json` (`PI_CODING_AGENT_DIR` is honoured; `PI_CHROMA_CONFIG` points at another file):
 
 ```json
-{ "style": "prism", "glyphs": "nerd", "motion": "full", "turnStats": true, "planWidget": true, "sessionRow": true, "frames": true }
+{ "style": "prism", "glyphs": "nerd", "motion": "full", "turnStats": true, "planWidget": true, "sessionRow": true, "frames": true, "bottomPad": 0 }
 ```
 
 Press **Ctrl+T** (pi's *hide thinking*) to collapse thinking blocks to the `Thought for 2.4s · 180 tokens · ▸ collapsed` line.

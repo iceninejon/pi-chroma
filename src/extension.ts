@@ -388,6 +388,13 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 			rt.requestRender();
 			ctx.ui.notify(`Glyphs: ${glyphs}`, "info");
 		},
+		padding(ctx: ExtensionContext, rows: number) {
+			rt.config.bottomPad = rows;
+			saveConfig(rt.config);
+			rt.tui?.invalidate();
+			rt.requestRender();
+			ctx.ui.notify(`Bottom padding: ${rows} ${rows === 1 ? "row" : "rows"}`, "info");
+		},
 		frames(ctx: ExtensionContext, on: boolean) {
 			rt.config.frames = on;
 			saveConfig(rt.config);
@@ -406,10 +413,10 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 	};
 
 	pi.registerCommand("chroma", {
-		description: "pi-chroma: switch style, glyphs, motion, block frames (/chroma style|glyphs|motion|frames <value>)",
+		description: "pi-chroma: switch style, glyphs, motion, block frames (/chroma style|glyphs|motion|frames|padding <value>)",
 		getArgumentCompletions(prefix) {
 			const words = prefix.split(/\s+/);
-			const opts: Record<string, readonly string[]> = { style: STYLE_NAMES, glyphs: GLYPH_NAMES, motion: MOTION_NAMES, frames: ["on", "off"] };
+			const opts: Record<string, readonly string[]> = { style: STYLE_NAMES, glyphs: GLYPH_NAMES, motion: MOTION_NAMES, frames: ["on", "off"], padding: ["0", "1", "2", "3"] };
 			if (words.length <= 1) {
 				return Object.keys(opts)
 					.filter((k) => k.startsWith(words[0] ?? ""))
@@ -431,6 +438,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 				if (what === "glyphs" && (GLYPH_NAMES as string[]).includes(value)) return apply.glyphs(ctx, value as never);
 				if (what === "motion" && (MOTION_NAMES as string[]).includes(value)) return apply.motion(ctx, value as never);
 				if (what === "frames" && (value === "on" || value === "off")) return apply.frames(ctx, value === "on");
+				if (what === "padding" && /^[0-3]$/.test(value)) return apply.padding(ctx, Number(value));
 				ctx.ui.notify(`Unknown option: ${what} ${value}`, "error");
 				return;
 			}
@@ -439,6 +447,7 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 				`Glyphs · ${rt.config.glyphs}`,
 				`Motion · ${rt.config.motion}`,
 				`Block frames · ${rt.config.frames ? "on" : "off"}`,
+				`Bottom padding · ${rt.config.bottomPad}`,
 			]);
 			if (!pick) return;
 			if (pick.startsWith("Style")) {
@@ -447,6 +456,9 @@ function registerChromaCommand(pi: ExtensionAPI): void {
 			} else if (pick.startsWith("Glyphs")) {
 				const gl = await ctx.ui.select("Glyphs", [...GLYPH_NAMES]);
 				if (gl && (GLYPH_NAMES as string[]).includes(gl)) apply.glyphs(ctx, gl as never);
+			} else if (pick.startsWith("Bottom padding")) {
+				const n = await ctx.ui.select("Blank rows under the footer", ["0", "1", "2", "3"]);
+				if (n && /^[0-3]$/.test(n)) apply.padding(ctx, Number(n));
 			} else if (pick.startsWith("Block frames")) {
 				const f = await ctx.ui.select("Block frames", ["on", "off"]);
 				if (f === "on" || f === "off") apply.frames(ctx, f === "on");
